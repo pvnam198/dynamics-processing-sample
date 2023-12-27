@@ -1,9 +1,18 @@
 package com.example.dynamicsprocessing;
 
+import android.content.Context;
+import android.content.Intent;
+import android.media.AudioManager;
+import android.media.AudioPlaybackConfiguration;
+import android.media.AudioTrack;
 import android.media.MediaPlayer;
+import android.media.audiofx.AudioEffect;
 import android.media.audiofx.DynamicsProcessing;
+import android.media.audiofx.Equalizer;
+import android.media.session.MediaSessionManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
@@ -12,10 +21,13 @@ import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.util.List;
+
 public class MainActivity extends AppCompatActivity {
-    private final String TAG = "DynamicsProcessingSample";
+    private final String TAG = "LOGDynamicsProcessingSample";
 
     private final String[] BAND_NAME = {"31HZ", "62HZ", "125HZ", "250HZ", "500HZ", "1KHZ", "2KHZ", "4KHZ", "8KHZ", "16KHZ"};//频段名字
     private final int[] BAND_VALUE = {31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000};//频段值
@@ -69,14 +81,27 @@ public class MainActivity extends AppCompatActivity {
     private static final float LIMITER_DEFAULT_POST_GAIN = 0; // dB
 
     @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        Log.d(TAG, "onActivityResult requestCode: " + requestCode + ", resultCode: " + resultCode);
+    }
+
+    @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         mMediaPlayer = MediaPlayer.create(this, R.raw.music);
         mAudioSessionId = mMediaPlayer.getAudioSessionId();
-        mMediaPlayer.start();
+//        mMediaPlayer.start();
 
         initDynamicsProcessing();
+
+
+        View btnReinit = findViewById(R.id.btnReinit);
+        btnReinit.setOnClickListener(v -> {
+                    initDynamicsProcessing();
+        }
+        );
 
         initEqView();
         CheckBox eqEnableCheckBox = findViewById(R.id.eqEnableCheckBox);
@@ -120,9 +145,10 @@ public class MainActivity extends AppCompatActivity {
 
     //初始化 DynamicsProcessing 相关类
     private void initDynamicsProcessing() {
+        try {
         if (mDynamicsProcessing == null) {
             DynamicsProcessing.Config.Builder builder = new DynamicsProcessing.Config.Builder(mVariant, mChannelCount, true, maxBandCount, true, maxBandCount, true, maxBandCount, true);
-            mDynamicsProcessing = new DynamicsProcessing(PRIORITY, mAudioSessionId, builder.build());
+            mDynamicsProcessing = new DynamicsProcessing(PRIORITY, 0, builder.build());
             mDynamicsProcessing.setEnabled(mEqEnable);
 
             mDynamicsProcessingEq = new DynamicsProcessing.Eq(true, true, maxBandCount);
@@ -134,7 +160,6 @@ public class MainActivity extends AppCompatActivity {
             mDynamicsProcessingLimiter = new DynamicsProcessing.Limiter(true, LIMITER_DEFAULT_ENABLED, LIMITER_DEFAULT_LINK_GROUP, LIMITER_DEFAULT_ATTACK_TIME, LIMITER_DEFAULT_RELEASE_TIME, LIMITER_DEFAULT_RATIO, LIMITER_DEFAULT_THRESHOLD, LIMITER_DEFAULT_POST_GAIN);
             mDynamicsProcessingLimiter.setEnabled(mEqEnable);
         }
-        try {
             for (int i = 0; i < maxBandCount; i++) {
                 mDynamicsProcessingEq.getBand(i).setCutoffFrequency(BAND_VALUE[i]);
                 setEqBandGain(i, mCurrentEqBandValues[i]);
